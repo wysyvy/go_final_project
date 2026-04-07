@@ -10,7 +10,6 @@ import (
 
 var DB *sql.DB
 
-// schema содержит SQL для создания таблицы и индекса
 const schema = `
 CREATE TABLE IF NOT EXISTS scheduler (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,19 +22,24 @@ CREATE TABLE IF NOT EXISTS scheduler (
 CREATE INDEX IF NOT EXISTS idx_date ON scheduler(date);
 `
 
+type Task struct {
+	ID      int    `json:"id"`
+	Date    string `json:"date"`
+	Title   string `json:"title"`
+	Comment string `json:"comment"`
+	Repeat  string `json:"repeat"`
+}
+
 // Init открывает БД и создаёт таблицу/индекс, если файла не существовало
 func Init(dbFile string) error {
-	// Проверяем существование файла
 	_, err := os.Stat(dbFile)
 	install := err != nil
 
-	// Открываем БД
 	DB, err = sql.Open("sqlite", dbFile)
 	if err != nil {
 		return err
 	}
 
-	// Если файла не было — выполняем создание таблицы и индекса
 	if install {
 		log.Println("Creating database schema...")
 		_, err = DB.Exec(schema)
@@ -46,4 +50,14 @@ func Init(dbFile string) error {
 
 	log.Println("Database initialized:", dbFile)
 	return nil
+}
+
+// AddTask добавляет задачу в БД и возвращает ID
+func AddTask(task *Task) (int64, error) {
+	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
+	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }

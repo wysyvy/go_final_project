@@ -9,12 +9,11 @@ import (
 func Start(port string) error {
 	mux := http.NewServeMux()
 
-	// Статика
 	webDir := "./web"
 	fs := http.FileServer(http.Dir(webDir))
 	mux.Handle("/", fs)
 
-	// API (регистрируем обработчики из пакета api)
+	// api
 	api.RegisterRoutes(mux)
 
 	fmt.Printf("Server starting on :%s\n", port)
