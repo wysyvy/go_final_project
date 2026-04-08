@@ -3,6 +3,7 @@ package main
 import (
 	"diploma/pkg/api"
 	"diploma/pkg/db"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -40,8 +41,9 @@ func main() {
 	handler := loggingMiddleware(mux)
 
 	port := "7540"
-	log.Printf("Server starting on :%s", port)
+	log.Printf("server starting on :%s", port)
+	fmt.Println("starting server on port", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
-		log.Fatal("Server failed:", err)
+		log.Fatal("server failed:", err)
 	}
 }

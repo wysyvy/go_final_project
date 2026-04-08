@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -23,7 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_date ON scheduler(date);
 `
 
 type Task struct {
-	ID      int    `json:"id"`
+	ID      string `json:"id"`
 	Date    string `json:"date"`
 	Title   string `json:"title"`
 	Comment string `json:"comment"`
@@ -52,7 +53,7 @@ func Init(dbFile string) error {
 	return nil
 }
 
-// AddTask добавляет задачу в БД и возвращает ID
+// AddTask добавляет задачу в БД и возвращает id
 func AddTask(task *Task) (int64, error) {
 	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
 	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
@@ -60,4 +61,41 @@ func AddTask(task *Task) (int64, error) {
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+// GetTask возвращает задачу по id
+func GetTask(id string) (*Task, error) {
+	var task Task
+	row := DB.QueryRow("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?", id)
+	err := row.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+	if err != nil {
+		return nil, err
+	}
+	return &task, nil
+}
+
+// DeleteTask удаляет задачу по id
+func DeleteTask(id string) error {
+	result, err := DB.Exec("DELETE FROM scheduler WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("task not found")
+	}
+	return nil
+}
+
+// UpdateTaskDate обновляет только дату
+func UpdateTaskDate(id string, date string) error {
+	result, err := DB.Exec("UPDATE scheduler SET date = ? WHERE id = ?", date, id)
+	if err != nil {
+		return err
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("task not found")
+	}
+	return nil
 }

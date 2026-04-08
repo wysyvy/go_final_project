@@ -29,7 +29,7 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 	case "d":
 		return nextDays(now, last, parts)
 	default:
-		return "", fmt.Errorf("unsupported repeat rule: %s (only 'y' and 'd N' are supported)", parts[0])
+		return "", fmt.Errorf("unsupported repeat rule: %s", parts[0])
 	}
 }
 
@@ -47,7 +47,7 @@ func nextYear(now time.Time, last time.Time) (string, error) {
 // nextDays повторение через N дней
 func nextDays(now time.Time, last time.Time, parts []string) (string, error) {
 	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid days format: expected 'd N'")
+		return "", fmt.Errorf("invalid days format")
 	}
 	days, err := strconv.Atoi(parts[1])
 	if err != nil || days <= 0 {
@@ -55,6 +55,9 @@ func nextDays(now time.Time, last time.Time, parts []string) (string, error) {
 	}
 	if days > 400 {
 		return "", fmt.Errorf("days count exceeds 400")
+	}
+	if days < 0 {
+		return "", fmt.Errorf("negative days")
 	}
 
 	next := last
