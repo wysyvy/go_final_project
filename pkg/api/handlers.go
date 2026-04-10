@@ -88,11 +88,18 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		task.Date = now.Format("20060102")
 	}
 
-	_, err := time.Parse("20060102", task.Date)
+	dateTime, err := time.Parse("20060102", task.Date)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid date format"})
+		return
+	}
+
+	if dateTime.Before(now) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Date cannot be in the past"})
 		return
 	}
 
