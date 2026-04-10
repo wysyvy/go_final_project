@@ -3,25 +3,11 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
 
 	_ "modernc.org/sqlite"
 )
 
 var DB *sql.DB
-
-const schema = `
-CREATE TABLE IF NOT EXISTS scheduler (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date CHAR(8) NOT NULL DEFAULT '',
-    title VARCHAR(255) NOT NULL,
-    comment TEXT,
-    repeat VARCHAR(128) NOT NULL DEFAULT ''
-);
-
-CREATE INDEX IF NOT EXISTS idx_date ON scheduler(date);
-`
 
 type Task struct {
 	ID      string `json:"id"`
@@ -31,40 +17,42 @@ type Task struct {
 	Repeat  string `json:"repeat"`
 }
 
-// Init открывает БД и создаёт таблицу/индекс, если файла не существовало
 func Init(dbFile string) error {
-	_, err := os.Stat(dbFile)
-	install := err != nil
-
+	var err error
 	DB, err = sql.Open("sqlite", dbFile)
 	if err != nil {
 		return err
 	}
-
-	if install {
-		log.Println("Creating database schema...")
-		_, err = DB.Exec(schema)
-		if err != nil {
-			return err
-		}
-	}
-
-	log.Println("Database initialized:", dbFile)
 	return nil
 }
 
-// AddTask добавляет задачу в БД и возвращает id
-func AddTask(task *Task) (int64, error) {
-	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
-	result, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
+// GetAllTasks возвращает список задач
+func GetAllTasks() ([]Task, error) {
+	rows, err := DB.Query("SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT 50")
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.LastInsertId()
+	defer rows.Close()
+
+	tasks := []Task{}
+	for rows.Next() {
+		var t Task
+		err := rows.Scan(&t.ID, &t.Date, &t.Title, &t.Comment, &t.Repeat)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
 }
 
-// GetTask возвращает задачу по id
-func GetTask(id string) (*Task, error) {
+// GetTaskByID возвращает задачу по id
+func GetTaskByID(id string) (*Task, error) {
 	var task Task
 	row := DB.QueryRow("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?", id)
 	err := row.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
@@ -74,27 +62,55 @@ func GetTask(id string) (*Task, error) {
 	return &task, nil
 }
 
-// DeleteTask удаляет задачу по id
-func DeleteTask(id string) error {
-	result, err := DB.Exec("DELETE FROM scheduler WHERE id = ?", id)
+// AddTask добавляет задачу
+func AddTask(task *Task) (int64, error) {
+	result, err := DB.Exec(
+		"INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)",
+		task.Date, task.Title, task.Comment, task.Repeat,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+// UpdateTask обновляет задачу
+func UpdateTask(task *Task) error {
+	result, err := DB.Exec(
+		"UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?",
+		task.Date, task.Title, task.Comment, task.Repeat, task.ID,
+	)
 	if err != nil {
 		return err
 	}
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
 		return fmt.Errorf("task not found")
 	}
 	return nil
 }
 
-// UpdateTaskDate обновляет только дату
+// DeleteTaskByID удаляет задачу по ID
+func DeleteTaskByID(id string) error {
+	result, err := DB.Exec("DELETE FROM scheduler WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("task not found")
+	}
+	return nil
+}
+
+// UpdateTaskDate обновляет только дату задачи
 func UpdateTaskDate(id string, date string) error {
 	result, err := DB.Exec("UPDATE scheduler SET date = ? WHERE id = ?", date, id)
 	if err != nil {
 		return err
 	}
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
 		return fmt.Errorf("task not found")
 	}
 	return nil
